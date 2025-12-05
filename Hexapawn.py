@@ -28,28 +28,7 @@ class Board():
     def __init__(self):
         self.turn = self.WHITE # game starts off with white to play
 
-        self.WHITE_PAWN_CAPTURES = [ # list of possible capture destination for each square on the board, to help with the tricky legal moves generation
-            [] ,
-            [] ,
-            [] ,
-            [1] ,
-            [0 ,2] ,
-            [1] ,
-            [4] ,
-            [3 ,5] ,
-            [4]
-            ]
-        self.BLACK_PAWN_CAPTURES = [
-            [4] ,
-            [3 ,5] ,
-            [4] ,
-            [7] ,
-            [6 ,8] ,
-            [7] ,
-            [] ,
-            [] ,
-            []
-            ]
+        self.computeCaptures()
 
         self.outputIndex = {} # cache for storing corresponding output for possible moves for easy conversion. Only stores possible white moves as will be explained later
         self.outputIndex["(6, 3)"] = 0
@@ -70,6 +49,35 @@ class Board():
         self.board = [self.EMPTY, self.EMPTY, self.EMPTY,
                       self.EMPTY, self.EMPTY, self.EMPTY,
                       self.EMPTY, self.EMPTY, self.EMPTY] # board is initialised as empty, could be initialised with starting position but that's left as an external method
+        
+    def computeCaptures(self):
+        self.BLACK_PAWN_CAPTURES = []
+        for i in range(9): # computes black captures
+            moves = []
+            if (i % 3) != 2:
+                target = i + 4
+                if target < 9:
+                    moves.append(target)
+            if (i % 3) != 0:
+                target = i + 2
+                if target < 9:
+                    moves.append(target)
+            self.BLACK_PAWN_CAPTURES.append(moves)
+        
+        self.WHITE_PAWN_CAPTURES = []
+        for i in range(9): # computes white captures
+            moves = []
+            if (i % 3) != 2:
+                target = i - 2
+                if target >= 0:
+                    moves.append(target)
+            if (i % 3) != 0:
+                target = i - 4
+                if target >= 0:
+                    moves.append(target)
+            self.WHITE_PAWN_CAPTURES.append(moves)
+
+
 
     def setStartingPosition(self):
         self.board = [self.BLACK, self.BLACK, self.BLACK,
