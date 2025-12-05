@@ -10,7 +10,6 @@ from mcts import ReinfLearn
 model = keras.models.load_model("random_model.keras") # load untrained model
 
 board = Board()
-board.setStartingPosition()
 
 inputData = []
 moveProbData = []

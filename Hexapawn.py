@@ -50,6 +50,8 @@ class Board():
                       self.EMPTY, self.EMPTY, self.EMPTY,
                       self.EMPTY, self.EMPTY, self.EMPTY] # board is initialised as empty, could be initialised with starting position but that's left as an external method
         
+        self.setStartingPosition()
+        
     def computeCaptures(self):
         self.BLACK_PAWN_CAPTURES = []
         for i in range(9): # computes black captures
