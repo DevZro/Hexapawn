@@ -198,6 +198,9 @@ class Board():
                 else:
                     posVec.append(0)
         return posVec   
+    
+    def changePiece(self, piece): # Given a piece, returns the other piece
+        return self.WHITE if piece == self.BLACK else self.BLACK
     # Remarks of what to adjust later
 
     # the idea of the Neural Network aiding feature being separated from the Board class to aid modularity
