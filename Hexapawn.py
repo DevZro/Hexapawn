@@ -124,27 +124,27 @@ class Board():
           Including the terminal check into this method i.e. check if it is a terminal position and return an empty list if it is, is largely a function of taste
 
         """
-        move = [] # create empty list to append moves to it as they are created
-        for i in range(9): # for all squares on the board
-            if self.board[i] == self.turn: # if the piece on said square is the piece to play, consider it else move along
-                if self.turn == self.WHITE: # Do this for white
-                    if (i-3) >= 0: # checks if the square in question has a square if front of it i.e. isn't  at the end of the bpoard
-                        if self.board[i-3] == self.EMPTY: # if said square in front is empty...
-                            move.append((i, i-3)) # ...append the pawn push
-                        for capture in self.WHITE_PAWN_CAPTURES[i]: # for potentially possible capture destinations
-                            if self.board[capture] == self.BLACK: # if an enemy pawn is there...
-                                move.append((i, capture)) #...append the pawn capture
+        moves = [] # create empty list to append moves to it as they are created
+        delta = -1 if (self.turn == self.WHITE) else 1
+        capture_list = self.WHITE_PAWN_CAPTURES if (self.turn == self.WHITE) else self.BLACK_PAWN_CAPTURES
 
-                if self.turn == self.BLACK: # essentially symmetrical to white
-                    if (i+3) < 9:
-                        if self.board[i+3] == self.EMPTY:
-                            move.append((i, i+3))
-                        for capture in self.BLACK_PAWN_CAPTURES[i]:
-                            if self.board[capture] == self.WHITE:
-                                move.append((i, capture))
+        # loop should cover all non-terminal squares for the colour to move
+        loop_range = range(6) if self.turn == self.BLACK else range(3, 9) 
 
-        self.legal_moves = move
-        return self.legal_moves 
+        # for all squares on the board
+        for i in loop_range: 
+            # if the piece on said square is the piece to play, consider it else move along
+            if self.board[i] == self.turn:
+                # check for all possible pawn pushes, add if square is empty
+                if self.board[i + (delta * 3)] == self.EMPTY:
+                    moves.append((i, i + (delta * 3))) 
+                # check for potentially possible capture destinations, add if an enemy piece 
+                for capture in capture_list[i]:
+                    if self.board[capture] == self.changePiece(self.turn):
+                        moves.append((i, capture)) 
+
+        self.legal_moves = moves
+        return moves
 
     def isTerminal(self):
         """
@@ -211,6 +211,8 @@ class Board():
     
     def changePiece(self, piece): # Given a piece, returns the other piece
         return self.WHITE if piece == self.BLACK else self.BLACK
+    
+
     # Remarks of what to adjust later
 
     # the idea of the Neural Network aiding feature being separated from the Board class to aid modularity
