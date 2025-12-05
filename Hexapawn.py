@@ -79,8 +79,6 @@ class Board():
                     moves.append(target)
             self.WHITE_PAWN_CAPTURES.append(moves)
 
-
-
     def setStartingPosition(self):
         self.board = [self.BLACK, self.BLACK, self.BLACK,
                       self.EMPTY, self.EMPTY, self.EMPTY,
@@ -92,11 +90,10 @@ class Board():
         converts board moves to output index of the Neural Network. The Neural Network to be created only looks at positions from the perspective of the player to move,
         so all black moves can be mapped to the corresponding white move on a rotated board and then converted using the outputIndex cache
         """
-        if move[0] > move[1]: # condition to check if it is a white move
-            return self.outputIndex[str(move)]
-        else:
-            return self.outputIndex[str((8-move[0], 8-move[1]))] # subtracting a position from 8 inverts it on the storage list and rotates it on the board
-
+        # check if it is a white move and rotate the board if it isn't
+        # white moves always reduces board index
+        return self.outputIndex[str(move)] if (move[0] > move[1]) else self.outputIndex[str((8-move[0], 8-move[1]))]
+        
     def applymove(self, move):
         """
         plays a specified move on the board. The legality of the move is not checked and wrongs move may throw an error or more likely and much worse make pieces do the impossible, 
