@@ -101,13 +101,16 @@ class Board():
         Moves are represented as tuples of starting piece position and ending piece position.
         Since pieces can't move backwards there is no ambiguity of which player the move applies to.
         """
-        self.board[move[1]] = self.board[move[0]] # move whatever is on the starting square to the destination square. 
-        self.board[move[0]] = self.EMPTY # convert the starting square to an empty square to show the piece has left
-        if self.turn == self.WHITE: # change the whose turn it is to play
-            self.turn = self.BLACK
-        else:
-            self.turn = self.WHITE
-        self.legal_moves = None # reset the list of legal moves
+
+        # change the piece on target square to the same type on the start square
+        # empty the start square
+        self.board[move[1]] = self.board[move[0]]
+        self.board[move[0]] = self.EMPTY 
+
+        # change the turn of whom to play
+        # reset legal moves list
+        self.turn = self.changePiece(self.turn)
+        self.legal_moves = None 
 
     def generateMoves(self): 
         """
