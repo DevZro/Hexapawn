@@ -4,7 +4,7 @@ from Hexapawn import Board
 # create minimax function to be used to generate training data for the Neural Network
 # NB: alpha-beta pruning isn't using because it cuts out positions and the Network ends up never seeing them
 
-def minimax(board, input_list, output_list1, output_list2):
+def minimax(board, input_list, output_list1, output_list2, move_masks):
     """
     Standard 2 output minimax function. It is modified to generate the evaluation for every possible Hexapawn position and append them to a list.
     I considered making it a pure minimax function and leaving the process of extracting training positions out to another function for the sake of modularity,
@@ -22,9 +22,9 @@ def minimax(board, input_list, output_list1, output_list2):
         best_score = -10
         best_move = None
         for move in board.generateMoves():
-            tmp = copy.deepcopy(board)
-            tmp.applymove(move)
-            score = minimax(tmp, input_list, output_list1, output_list2)[0]
+            board.applyMove(move)
+            score = minimax(board, input_list, output_list1, output_list2, move_masks)[0]
+            board.undoMove(move)
             if score > best_score:
                 best_score = score
                 best_move = move
@@ -33,9 +33,9 @@ def minimax(board, input_list, output_list1, output_list2):
         best_score = 10
         best_move = None
         for move in board.generateMoves():
-            tmp = copy.deepcopy(board)
-            tmp.applymove(move)
-            score = minimax(tmp, input_list, output_list1, output_list2)[0]
+            board.applyMove(move)
+            score = minimax(board, input_list, output_list1, output_list2, move_masks)[0]
+            board.undoMove(move)
             if score < best_score:
                 best_score = score
                 best_move = move
@@ -43,8 +43,12 @@ def minimax(board, input_list, output_list1, output_list2):
     input_list.append(board.toNetworkInput()) # convert each non-terminal position into NN input and append them to the data_list
     move_vector = [0 for i in range(14)]
     move_vector[board.getNetworkOutputIndex(best_move)] = 1 # change only the index of the best_move to 1 and leave the rest as 0s
+
     output_list1.append(move_vector)
-    output_list2.append(best_score if board.turn == Board.WHITE else - best_score) # the NN sees positions from player's perspective so scores should be adjusted to show that
+    output_list2.append([best_score if board.turn == Board.WHITE else - best_score]) # the NN sees positions from player's perspective so scores should be adjusted to show that
+
+    move_mask = [board.getNetworkOutputIndex(move) for move in board.generateMoves()] # create move mask for the position
+    move_masks.append(move_mask)
 
     return best_score, best_move
 

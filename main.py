@@ -1,33 +1,94 @@
-from tensorflow import keras
+import torch
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
 from Hexapawn import Board
 from minimax import minimax
-import numpy as np
+import json
 import random
-from mcts import ReinfLearn
+# from mcts import ReinfLearn
+from model import HexaPawnNet
 
 # Part 1
 # training a NN using supervised Learning method
-model = keras.models.load_model("random_model.keras") # load untrained model
+model = HexaPawnNet()
 
 board = Board()
+x = []
+target_policy = []
+target_value = []
+mask_list = []
 
-inputData = []
-moveProbData = []
-valueData = []
 
-minimax(board, inputData, moveProbData, valueData) # generate training data
+minimax(board, x, target_policy, target_value, mask_list) # generate training data
 
-inputData = np.array(inputData)
-moveProbData = np.array(moveProbData)
-valueData = np.array(valueData)
+data = {
+    "x": x,
+    "target_policy": target_policy,
+    "target_value": target_value,
+    "mask_list": mask_list
+}
 
-np.save("inputData", inputData)
-np.save("moveProbData", moveProbData)
-np.save("valueData", valueData)
+with open("data.json", "w") as file:
+    json.dump(data, file, indent=4)
 
-model.fit(inputData, [moveProbData, valueData], epochs=512, batch_size=16) # train model, 512 epochs may actually be overkill
-model.save("supervised_model.keras")
+x = torch.tensor(x, dtype=torch.float32)
+target_policy = torch.tensor(target_policy, dtype=torch.float32)
+target_value = torch.tensor(target_value, dtype=torch.float32)
 
+mask = torch.zeros((len(mask_list), 14), dtype=torch.bool)
+
+for i, idxs in enumerate(mask_list):
+    mask[i, idxs] = True
+
+class HexaPawnDataset(Dataset):
+    def __init__(self, states: torch.Tensor, policies: torch.Tensor, values: torch.Tensor,  masks: torch.Tensor):
+        self.states = states.float()
+        self.masks = masks
+        self.policies = policies.float()  
+        self.values = values.float()  
+        self.len = self.states.shape[0]
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, idx):
+        return self.states[idx], self.policies[idx], self.values[idx], self.masks[idx]
+
+def loss_fn(policy_logits, value, target_policy, target_value, move_mask): # loss function
+    value_loss = F.mse_loss(value, target_value)
+
+    policy_logits = policy_logits.masked_fill(~move_mask, -1e9) # mask illegal moves
+    policy_loss = F.cross_entropy(policy_logits, target_policy.argmax(dim=-1))
+    
+    return policy_loss + value_loss
+
+def train_step(model, optimizer, x, target_policy, target_value, move_mask):
+    optimizer.zero_grad()
+    policy_logits, value = model(x)
+    loss = loss_fn(policy_logits, value, target_policy, target_value, move_mask)
+    loss.backward()
+    optimizer.step()
+    return loss.item()
+
+batch_size = 16
+dataset = HexaPawnDataset(x, target_policy, target_value, mask)
+dataloader = DataLoader(
+    dataset,
+    batch_size=batch_size,
+    shuffle=True)
+
+optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
+model.train()
+for epoch in range(512):  # train for 512 epochs
+    total_loss = 0
+    for batch_states, batch_policies, batch_values, batch_masks in dataloader:
+        loss = train_step(model, optimizer, batch_states, batch_policies, batch_values, batch_masks)
+        total_loss += loss
+    print(f"Epoch {epoch+1}, Loss: {total_loss/len(dataloader)}")
+
+torch.save(model.state_dict(), "supervised_model.pth")
+
+"""
 def rand_vs_network(model):
     
     #function to simulate match between a random player as the white pieces and the NN as the black pieces.
@@ -110,3 +171,4 @@ for i in range(10): # test all 10 saved iterations of the reinforced model
     score.append(black_win)
 for black_win in score:
     print(f"Out of a 100 games, the random player won {(100 - black_win)} while the Neural Net won {black_win}")
+"""
