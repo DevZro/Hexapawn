@@ -88,17 +88,16 @@ for epoch in range(512):  # train for 512 epochs
 
 torch.save(model.state_dict(), "supervised_model.pth")
 
-"""
-def rand_vs_network(model):
+
+def rand_vs_network(model, use_mask=True):
     
     #function to simulate match between a random player as the white pieces and the NN as the black pieces.
     
     board = Board()
-    board.setStartingPosition()
 
     while  not board.isTerminal()[0]: # loop for each move i.e. 1 ply for each player
         move = random.choice(board.generateMoves())
-        board.applymove(move)
+        board.applyMove(move)
 
         if board.isTerminal()[0]: # check for a win after the random player plays
             break
@@ -106,11 +105,21 @@ def rand_vs_network(model):
             
             #the method of playing a move by the NN is clunky and may have to be adjusted in a later commit
            
-            network_output = model.predict(np.array([board.toNetworkInput()]))[0][0]  # get the policy output for the current position
-            move_vector = [0 for i in range(14)]
-            for move in board.generateMoves(): # sets illegal move predictions by the NN to 0
-                move_vector[board.getNetworkOutputIndex(move)] = network_output[board.getNetworkOutputIndex(move)]
-            move_index = np.argmax(np.array(move_vector)) # find the move index of the NN's choice
+            network_output = model(torch.tensor([board.toNetworkInput()], dtype=torch.float32))[0][0]  # get the policy output for the current position
+
+            # There shouldn't be a need to use move masks if the model is trained normally
+            # but it was trained with a mask so it didn't learn to not suggest illegal moves
+            if use_mask:
+                mask = torch.zeros((14,), dtype=torch.bool)
+                idx = [board.getNetworkOutputIndex(move) for move in board.generateMoves()]
+                mask[idx] = True
+
+                # replaces illegal moves logits with a very large negative number
+                # this removes all useless values
+                network_output = network_output.masked_fill(~mask, -1e9)
+                network_output = F.softmax(network_output, dim=0)
+
+            move_index = torch.argmax(network_output).item() # find the move index of the NN's choice
             best_move = None
             for move in board.generateMoves():
                 
@@ -119,21 +128,25 @@ def rand_vs_network(model):
                 
                 if board.getNetworkOutputIndex(move) == move_index:
                     best_move = move
-            board.applymove(best_move)
+                    break
+            board.applyMove(best_move)
 
     return board.isTerminal()[1] # returns winner
 
 white_win = 0
 black_win = 0
 
-for i in range(100): # quick round of 100 games to see if the NN is indeed perfect
-    if rand_vs_network(model) == Board.WHITE:
+for i in range(1000): # quick round of 100 games to see if the NN is indeed perfect
+    result = rand_vs_network(model)
+    if result == Board.WHITE:
         white_win += 1
-    else:
+    elif result == Board.BLACK:
         black_win += 1
+    if (i % 100) == 99:
+        print(f"Game {i + 1} complete!")
+print(f"Out of a 1000 games, the random player won {white_win} while the Neural Net won {black_win}")
 
-print(f"Out of a 100 games, the random player won {white_win} while the Neural Net won {black_win}")
-
+"""
 #Remark
 
 # It is important to note that the Neural Network is used to show a concept therefore it is trained to overfit and essentially memorise every Hexapawn position.
