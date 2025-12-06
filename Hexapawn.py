@@ -118,7 +118,7 @@ class Board():
         self.turn = self.changePiece(self.turn)
         self.legal_moves = None 
     
-    def UndoMove(self, move):
+    def undoMove(self, move):
         """
         Undoes a specified move on the board. Like the applymove method, it assumes that the move was legal and played previously.
         """
