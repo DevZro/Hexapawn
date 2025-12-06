@@ -96,7 +96,7 @@ class Board():
         # white moves always reduces board index
         return self.outputIndex[str(move)] if (move[0] > move[1]) else self.outputIndex[str((8-move[0], 8-move[1]))]
         
-    def applymove(self, move):
+    def applyMove(self, move):
         """
         plays a specified move on the board. The legality of the move is not checked and wrongs move may throw an error or more likely and much worse make pieces do the impossible, 
         therefore it is assumed that anywhere the method is used, the moves were taken directly from generated legal moves.
@@ -126,7 +126,9 @@ class Board():
         # empty the target square
         self.board[move[0]] = self.board[move[1]]
         if self.captureHistory.pop():
-            self.board[move[1]] = self.changePiece(self.turn) # restore captured piece
+            # restore captured piece, self.turn is left since if we are reversing a black move, 
+            # that means it is white's turn and the captured piece was white
+            self.board[move[1]] = self.turn 
         else:
             self.board[move[1]] = self.EMPTY 
 
