@@ -28,6 +28,8 @@ class Board():
     def __init__(self):
         self.turn = self.WHITE # game starts off with white to play
 
+        self.captureHistory = []
+
         self.computeCaptures()
 
         self.outputIndex = {} # cache for storing corresponding output for possible moves for easy conversion. Only stores possible white moves as will be explained later
@@ -104,6 +106,10 @@ class Board():
 
         # change the piece on target square to the same type on the start square
         # empty the start square
+        if self.board[move[1]] != self.EMPTY:
+            self.captureHistory.append(True)
+        else:
+            self.captureHistory.append(False)
         self.board[move[1]] = self.board[move[0]]
         self.board[move[0]] = self.EMPTY 
 
@@ -111,6 +117,24 @@ class Board():
         # reset legal moves list
         self.turn = self.changePiece(self.turn)
         self.legal_moves = None 
+    
+    def UndoMove(self, move):
+        """
+        Undoes a specified move on the board. Like the applymove method, it assumes that the move was legal and played previously.
+        """
+        # change the piece on start square to the same type on the target square
+        # empty the target square
+        self.board[move[0]] = self.board[move[1]]
+        if self.captureHistory.pop():
+            self.board[move[1]] = self.changePiece(self.turn) # restore captured piece
+        else:
+            self.board[move[1]] = self.EMPTY 
+
+        # change the turn of whom to play
+        # reset legal moves list
+        self.turn = self.changePiece(self.turn)
+        self.legal_moves = None
+
 
     def generateMoves(self): 
         """
