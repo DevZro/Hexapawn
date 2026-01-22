@@ -5,13 +5,12 @@ from Hexapawn import Board
 from minimax import minimax
 import json
 import random
-# from mcts import ReinfLearn
+from mcts import ReinfLearn, MCTS, Edge, Node
 from model import HexaPawnNet
 
 # Part 1
 # training a NN using supervised Learning method
 model = HexaPawnNet()
-
 board = Board()
 x = []
 target_policy = []
@@ -28,7 +27,7 @@ data = {
     "mask_list": mask_list
 }
 
-with open("data.json", "w") as file:
+with open("data/data.json", "w") as file:
     json.dump(data, file, indent=4)
 
 x = torch.tensor(x, dtype=torch.float32)
@@ -86,8 +85,7 @@ for epoch in range(512):  # train for 512 epochs
         total_loss += loss
     print(f"Epoch {epoch+1}, Loss: {total_loss/len(dataloader)}")
 
-torch.save(model.state_dict(), "supervised_model.pth")
-
+torch.save(model.state_dict(), "models/supervised_model.pth")
 
 def rand_vs_network(model, use_mask=True):
     
@@ -136,7 +134,7 @@ def rand_vs_network(model, use_mask=True):
 white_win = 0
 black_win = 0
 
-for i in range(1000): # quick round of 100 games to see if the NN is indeed perfect
+for i in range(1000): # quick round of 1000 games to see if the NN is indeed perfect
     result = rand_vs_network(model)
     if result == Board.WHITE:
         white_win += 1
@@ -146,7 +144,7 @@ for i in range(1000): # quick round of 100 games to see if the NN is indeed perf
         print(f"Game {i + 1} complete!")
 print(f"Out of a 1000 games, the random player won {white_win} while the Neural Net won {black_win}")
 
-"""
+
 #Remark
 
 # It is important to note that the Neural Network is used to show a concept therefore it is trained to overfit and essentially memorise every Hexapawn position.
@@ -156,32 +154,100 @@ print(f"Out of a 1000 games, the random player won {white_win} while the Neural 
 # Part 2
 # training a NN using Reinforcement learning
 
-model = keras.models.load_model("random_model.keras") # load random_model
+model = HexaPawnNet()
 learner = ReinfLearn(model)
 
-for i in range(10): # use reinforcement learning 10 times to improve the model
-    inputData = []
-    outputData1 = []
-    outputData2 = []
-    for j in range(20): # play 20 games and add all their positions to creat training data
-        data = learner.playGame()
-        inputData += data[0]
-        outputData1 += data[1]
-        outputData2 += data[2]
-    model.fit(np.array(inputData), [np.array(outputData1), np.array(outputData2)], epochs=512, batch_size=16) # 512 epochs might again be an overkill
-    model.save(f"reinforced_model{i}.keras") # save current iteration of Reinforced model
+torch.save(model.state_dict(), "models/zero_model0.pth")
+
+for i in range(5): # use reinforcement learning 5 times to improve the model
+    x = []
+    target_policy = []
+    target_value = []
+    for j in range(20): # play 20 games and add all their positions to create training data
+        x_, target_policy_, target_value_ = learner.playGame()
+        x += x_
+        target_policy += target_policy_
+        target_value += target_value_
+    
+    x = torch.tensor(x, dtype=torch.float32)
+    target_policy = torch.tensor(target_policy, dtype=torch.float32)
+    target_value = torch.tensor(target_value, dtype=torch.float32)
+
+    mask = torch.ones((len(target_policy), 14), dtype=torch.bool) # A dummy mask since MCTS gives a clean policy
+
+    batch_size = 16
+    dataset = HexaPawnDataset(x, target_policy, target_value, mask)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True)
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
+    model.train()
+    for epoch in range(64):  # train for 32 epochs
+        total_loss = 0
+        for batch_states, batch_policies, batch_values, batch_masks in dataloader:
+            loss = train_step(model, optimizer, batch_states, batch_policies, batch_values, batch_masks)
+            total_loss += loss
+        print(f"Epoch {epoch+1}, Loss: {total_loss/len(dataloader)}")
+
+    torch.save(model.state_dict(), f"models/zero_model{i + 1}.pth")
+
+def rand_vs_zero(model):
+    
+    #function to simulate match between a random player as the white pieces and the zero style MCTS as the black pieces.
+    
+    board = Board()
+
+    while  not board.isTerminal()[0]: # loop for each move i.e. 1 ply for each player
+        move = random.choice(board.generateMoves())
+        board.applyMove(move)
+
+        if board.isTerminal()[0]: # check for a win after the random player plays
+            break
+        else:
+            rootEdge = Edge(None, None)
+            rootNode = Node(board, rootEdge)
+            rootEdge.N = 1 # the rootEdge is give a N of 1 else uct of the children edges throw errors
+            mcts = MCTS(model)
+            moveProb = mcts.search(rootNode) # use MCTS
+
+            move_choice = None
+            max_prob = 0
+        
+            for (move, prob, _ , _) in moveProb:
+                if prob > max_prob:
+                    move_choice = move
+            
+            board.applyMove(move_choice)
+
+    return board.isTerminal()[1] # returns winner
 
 score = []
-for i in range(10): # test all 10 saved iterations of the reinforced model
-    model = keras.models.load_model(f"reinforced_model{i}.keras")
+for i in range(6): # test all 11 saved iterations of the reinforced model
+    model = HexaPawnNet()
+    state_dict = torch.load(f"models/zero_model{i}.pth")
+    model.load_state_dict(state_dict)
+
     white_win = 0
     black_win = 0
-    for i in range(100): # quick round of 100 games to see if the NN is indeed perfect
-        if rand_vs_network(model) == Board.WHITE:
+
+    print(f"Model {i}")
+    for i in range(1000): # quick round of 1000 games to see if the NN is indeed perfect
+        result = rand_vs_network(model)
+        if result == Board.WHITE:
             white_win += 1
-        else:
+        elif result == Board.BLACK:
             black_win += 1
-    score.append(black_win)
-for black_win in score:
-    print(f"Out of a 100 games, the random player won {(100 - black_win)} while the Neural Net won {black_win}")
-"""
+    print(f"Out of a 1000 games, the random player won {white_win} while the Neural Net won {black_win}.")
+
+    white_win = 0
+    black_win = 0
+
+    for i in range(1000): # quick round of 1000 games to see how good the MCTS protoclol is
+        result = rand_vs_zero(model)
+        if result == Board.WHITE:
+            white_win += 1
+        elif result == Board.BLACK:
+            black_win += 1
+    print(f"Out of a 1000 games, the random player won {white_win} while the MCTS won {black_win}.")

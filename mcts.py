@@ -1,7 +1,8 @@
 import copy
 import math
 import random
-import numpy as np
+import torch
+import torch.nn.functional as F
 from Hexapawn import Board
 
 # create the Monte-Carlo Tree Search to be used an alternative to generate training data and also as a facility for Reinforcement Learning
@@ -43,21 +44,24 @@ class Node:
         """
         Expand a leaf position to add all possible resulting position to the tree and initialise edges with the priror network probabilities
         """
-        q = network.predict(np.array([self.board.toNetworkInput()]))
-        total_prob = 0
+
+        mask = torch.zeros((14,), dtype=torch.bool)
+        idx = [self.board.getNetworkOutputIndex(move) for move in self.board.generateMoves()]
+        mask[idx] = True
+
+        policy, value = network(torch.tensor([self.board.toNetworkInput()], dtype=torch.float32)) # get network output for the position
+        policy = policy[0].masked_fill(~mask, -1e9) # gets the one batch member of the policy output. tensor is now 1d
+        policy = F.softmax(policy, dim=0)
+
         for move in self.board.generateMoves():
             childEdge = Edge(move, self)
-            childEdge.P = q[0][0][self.board.getNetworkOutputIndex(move)]
-            total_prob += childEdge.P
+            childEdge.P = policy[self.board.getNetworkOutputIndex(move)] 
             tmp = copy.deepcopy(self.board) # just like with the minimax, a new board object is created for every new added node
-            tmp.applymove(move)
+            tmp.applyMove(move)
             childNode = Node(tmp, childEdge)
             self.childEdgeNode.append((childEdge, childNode))
-
-        for (edge, _) in self.childEdgeNode:
-            edge.P /= total_prob # scale up the probabilities of legal moves after removing illegal moves
-        
-        return q[1][0][0] # returns predicted network evaluation, will be useful during the expand_and_evaluate step
+      
+        return value[0][0] # returns predicted network evaluation, will be useful during the expand_and_evaluate step
     
     def isLeaf(self):
         return len(self.childEdgeNode) == 0
@@ -97,10 +101,10 @@ class MCTS:
           after a move is made. Therefore in a terminal position, the last player won't be shown when board.turn is checked.  
         """
         if node.board.isTerminal()[0]:
-            v = -1 if node.board.isTerminal()[1] == node.board.turn else 1 
+            v = 1 # a checkmate is always a good move for whoever played it
             self.backpropagate(v, node.parentEdge)
         else:
-            v = - node.expand(self.network) 
+            v = - node.expand(self.network) # the better the expected result of a position, the worse it was for who played the last move
             self.backpropagate(v, node.parentEdge)
 
     def backpropagate(self, v, edge):
@@ -137,7 +141,6 @@ class ReinfLearn:
         valueData = []
 
         board = Board()
-        board.setStartingPosition()
 
         while not board.isTerminal()[0]:
             positionData.append(board.toNetworkInput())
@@ -151,8 +154,7 @@ class ReinfLearn:
             for (move, prob, _ , _) in moveProb:
                 moveVector[board.getNetworkOutputIndex(move)] = prob # records the probability of each move index
 
-            rand_idx = np.random.multinomial(1, moveVector) # use numpy to choose a random move_index based on the probabilities
-            idx = np.where(rand_idx==1)[0][0]
+            idx = torch.multinomial(torch.tensor(moveVector, dtype=torch.float32), num_samples=1).item() # sample a move index according to the probabilities
             move_choice = None
 
             for (move, prob, _, _) in moveProb: # find said move
@@ -160,15 +162,15 @@ class ReinfLearn:
                     move_choice = move
             
             moveProbData.append(moveVector)
-            board.applymove(move_choice)
+            board.applyMove(move_choice)
 
         if board.isTerminal()[1] == board.WHITE:
             for i in range(len(positionData)): # if white won that every black position has a score of -1
-                valueData.append((-1)**i)
+                valueData.append([(-1)**i])
 
         else:
             for i in range(len(positionData)): # opposite
-                valueData.append((-1)**(i+1))
+                valueData.append([(-1)**(i+1)])
             
         return (positionData, moveProbData, valueData)
 
