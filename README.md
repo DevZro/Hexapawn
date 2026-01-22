@@ -63,6 +63,7 @@ This produces a strong baseline model and serves as a sanity check for the learn
 - `minimax.py` — Exhaustive minimax search and dataset generation
 - `mcts.py` — Monte Carlo Tree Search and self-play reinforcement learning
 - `main.py` — Entry point: data generation, supervised training, RL loop, evaluation vs random
+- `requirements.txt` — required installations 
 - `README.md` — Project documentation
 
 
