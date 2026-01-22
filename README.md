@@ -52,17 +52,18 @@ This produces a strong baseline model and serves as a sanity check for the learn
 
 ## Project Structure
 
-├── data/
-│   └── data.json          # Dataset from exhaustive minimax search (board states and optimal moves)
-├── models/
-│   └── [model files]      # Saved PyTorch models from supervised and reinforcement learning
-├── Hexapawn.py            # Defines the Hexapawn game class (board representation, moves, rules)
-├── model.py               # Defines the Neural Network class in PyTorch
-├── minimax.py             # Implements the minimax algorithm for exhaustive search and data generation
-├── mcts.py                # Implements Monte Carlo Tree Search (MCTS) and self-play for reinforcement learning
-├── main.py                # Main script: Runs minimax for data generation, supervised training, self-play RL, and model evaluation
-├── requirements.txt       # Shows the required installations
-└── README.md              # This file
+## File Structure
+
+- **data/**
+  - `data.json` — Dataset from exhaustive minimax search (board states + optimal moves/values)
+- **models/**
+  - Saved PyTorch model files (from supervised and reinforcement learning)
+- `Hexapawn.py` — Hexapawn game logic (board representation, legal moves, win conditions)
+- `model.py` — Neural network architecture (PyTorch)
+- `minimax.py` — Exhaustive minimax search and dataset generation
+- `mcts.py` — Monte Carlo Tree Search and self-play reinforcement learning
+- `main.py` — Entry point: data generation, supervised training, RL loop, evaluation vs random
+- `README.md` — Project documentation
 
 
 ---
